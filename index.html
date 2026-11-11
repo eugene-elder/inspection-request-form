@@ -82,13 +82,13 @@ function irfRecalc(){var f=document.getElementById('f'),e=f.elements,d=irfNum(e[
 (function(){var f=document.getElementById('f'),di=f.elements['Discount'];f.addEventListener('input',irfRecalc);f.addEventListener('change',irfRecalc);f.addEventListener('reset',function(){setTimeout(irfRecalc,0);});
 window.addEventListener('beforeprint',irfRecalc);di.addEventListener('blur',function(){var n=irfNum(di.value);di.value=n>0?irfMoney(n):'';irfRecalc();});irfRecalc();})();
 </script>
-<style>#irf-last{grid-column:span 6;font-size:.82em;color:#555;margin-top:-4px}#irf-last a{color:#1e5631;margin-left:6px;cursor:pointer;text-decoration:underline}#irf-last .x{text-decoration:none;color:#777;margin-left:10px;font-size:1.1em}@media print{#irf-last{display:none!important}}#irf-folder{margin-left:auto;align-self:center;font-size:.8em;color:#555}#irf-folder a{color:#1e5631}.irf-dlg{border:1px solid #000;border-radius:6px;max-width:440px;padding:16px 18px}.irf-dlg p{white-space:pre-line;margin:0 0 14px}.irf-dlg-b{display:flex;gap:8px;flex-wrap:wrap}.irf-toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#1e5631;color:#fff;padding:8px 14px;border-radius:4px;z-index:9}@media print{.irf-toast,.irf-dlg{display:none!important}}</style>
+<style>#irf-last{grid-column:span 6;font-size:.82em;color:#555;margin-top:-4px}#irf-last a{color:#1e5631;margin-left:6px;cursor:pointer;text-decoration:underline}#irf-last .x{text-decoration:none;color:#777;margin-left:10px;font-size:1.1em}@media print{#irf-last{display:none!important}}#irf-folder{margin-left:auto;align-self:center;font-size:.8em;color:#555}#irf-folder a{color:#1e5631}.irf-dlg{border:1px solid #000;border-radius:6px;max-width:440px;padding:16px 18px}.irf-dlg p{white-space:pre-line;margin:0 0 14px}.irf-dlg-b{display:flex;gap:8px;flex-wrap:wrap}.irf-status{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);max-width:min(680px,92vw);color:#fff;padding:9px 14px;border-radius:4px;z-index:10;cursor:pointer;font-size:.92em;box-shadow:0 2px 8px rgba(0,0,0,.25)}.irf-status.ok{background:#1e5631}.irf-status.err{background:#a40000}.irf-status.info{background:#333}@media print{.irf-status{display:none!important}}.irf-toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#1e5631;color:#fff;padding:8px 14px;border-radius:4px;z-index:9}@media print{.irf-toast,.irf-dlg{display:none!important}}</style>
 <script>
 (function(){
 var F=document.getElementById('f'),KEY='irf-last-customer';
 /* pristine copy of this page (without any embedded data) captured before the page is changed */
 var tpl=document.documentElement.cloneNode(true);
-[].forEach.call(tpl.querySelectorAll('#irf-data,#irf-last,#irf-folder,.irf-dlg,.irf-toast'),function(n){n.parentNode.removeChild(n);});
+[].forEach.call(tpl.querySelectorAll('#irf-data,#irf-last,#irf-folder,#irf-status,.irf-dlg,.irf-toast'),function(n){n.parentNode.removeChild(n);});
 function el(n){return F.elements[n];}
 function custName(){return ((el('First name').value||'').trim()+' '+(el('Last name').value||'').trim()).trim();}
 function fileName(){var s=custName().replace(/[^A-Za-z0-9 _-]+/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');return 'inspection-'+(s||'unnamed')+'.html';}
@@ -98,35 +98,42 @@ s.textContent=JSON.stringify(collect()).replace(/</g,'\\u003c');var bd=d.querySe
 return '<!DOCTYPE html>\n'+d.outerHTML;}
 function remember(){var n=custName();if(!n)return;try{localStorage.setItem(KEY,JSON.stringify({first:el('First name').value.trim(),last:el('Last name').value.trim()}));}catch(e){}}
 function download(html,name){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
-var DIRKEY='saveDir',memDir=null,FOLDER_HINT='Inspection Request Form folder inside Desktop\\USRVI';
-function idb(){return new Promise(function(res,rej){var r=indexedDB.open('irf-save',1);r.onupgradeneeded=function(){r.result.createObjectStore('kv');};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
-async function getDir(){if(memDir)return memDir;try{var db=await idb();return await new Promise(function(res){var q=db.transaction('kv').objectStore('kv').get(DIRKEY);q.onsuccess=function(){memDir=q.result||null;res(memDir);};q.onerror=function(){res(null);};});}catch(e){return null;}}
-async function setDir(h){memDir=h;try{var db=await idb();await new Promise(function(res){var t=db.transaction('kv','readwrite');t.objectStore('kv').put(h,DIRKEY);t.oncomplete=res;t.onerror=res;t.onabort=res;});}catch(e){}folderLabel();}
-async function clearDir(){memDir=null;try{var db=await idb();db.transaction('kv','readwrite').objectStore('kv').delete(DIRKEY);}catch(e){}folderLabel();}
-/* small in-page dialog; returns the value of the clicked button (a click also gives the browser the user gesture it needs) */
-function ask(msg,btns){return new Promise(function(res){var d=document.createElement('dialog');d.className='irf-dlg';var p=document.createElement('p');p.textContent=msg;d.appendChild(p);var row=document.createElement('div');row.className='irf-dlg-b';
-btns.forEach(function(b){var e=document.createElement('button');e.type='button';e.textContent=b[0];if(b[2])e.className='sec';e.onclick=function(){d.close();d.remove();res(b[1]);};row.appendChild(e);});
-d.appendChild(row);d.addEventListener('cancel',function(){d.remove();res(null);});document.body.appendChild(d);d.showModal();});}
-function toast(m){var t=document.createElement('div');t.className='irf-toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove();},4000);}
-async function pickDir(){try{var h=await window.showDirectoryPicker({id:'usrvi-inspections',mode:'readwrite',startIn:'desktop'});await setDir(h);return h;}catch(e){return null;}}
-async function chooseFolderFirst(){var go=await ask('Choose where inspection files are saved.\n\nIn the next window, open Desktop \u2192 USRVI, click the "Inspection Request Form" folder, then click "Select folder" (and "Save changes"/"Allow" if the browser asks). You only need to do this once.',[['Choose folder','go'],['Cancel',null,1]]);return go?pickDir():null;}
-async function permOK(h){var o={mode:'readwrite'};try{if(!h.queryPermission)return true;if(await h.queryPermission(o)==='granted')return true;return (await h.requestPermission(o))==='granted';}catch(e){return false;}}
+var DIRKEY='saveDir',memDir=null,dirLoaded=null;
+function idb(){return new Promise(function(res,rej){var r=indexedDB.open('irf-save',1);r.onupgradeneeded=function(){r.result.createObjectStore('kv');};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};r.onblocked=function(){rej(new Error('IndexedDB blocked'));};});}
+/* load the remembered folder once at page load, so a click can use it immediately */
+function loadDir(){if(!dirLoaded)dirLoaded=(async function(){try{var db=await idb();return await new Promise(function(res){var q=db.transaction('kv').objectStore('kv').get(DIRKEY);q.onsuccess=function(){res(q.result||null);};q.onerror=function(){res(null);};});}catch(e){console.error('Could not read saved folder',e);return null;}})().then(function(h){if(h&&!memDir)memDir=h;return memDir;});return dirLoaded;}
+/* remember the folder: resolves only after the IndexedDB transaction has committed */
+async function setDir(h){memDir=h;dirLoaded=Promise.resolve(h);folderLabel();var db=await idb();await new Promise(function(res,rej){var t=db.transaction('kv','readwrite');t.objectStore('kv').put(h,DIRKEY);t.oncomplete=function(){res();};t.onerror=function(){rej(t.error);};t.onabort=function(){rej(t.error||new Error('IndexedDB write aborted'));};});}
+function errText(e){return (e&&e.name||'Error')+': '+(e&&e.message||String(e));}
+/* status note: green = saved, red = problem (stays until clicked or next save), grey = instructions */
+function status(m,kind){var s=document.getElementById('irf-status');if(!s){s=document.createElement('div');s.id='irf-status';s.title='Click to close';s.onclick=function(){s.remove();};document.body.appendChild(s);}
+s.className='irf-status '+(kind||'info');s.textContent=m;clearTimeout(s._t);if(kind==='ok')s._t=setTimeout(function(){s.remove();},6000);}
+function clearStatus(){var s=document.getElementById('irf-status');if(s)s.remove();}
 async function exists(h,n){try{await h.getFileHandle(n);return true;}catch(e){return false;}}
-async function writeTo(h,n,html){var fh=await h.getFileHandle(n,{create:true}),w=await fh.createWritable();await w.write(new Blob([html],{type:'text/html'}));await w.close();}
-async function saveToDir(html,name){var h=await getDir();if(!h){h=await chooseFolderFirst();if(!h)return 'cancel';}
-if(!(await permOK(h))){var a=await ask('The browser needs your OK to save into "'+h.name+'".',[['Allow','go'],['Choose a different folder','pick',1],['Save another way','other',1]]);
-if(a==='pick'){h=await pickDir();if(!h)return 'cancel';}else if(a!=='go'||!(await permOK(h)))return a===null?'cancel':'fail';}
-if(await exists(h,name)){var base=name.replace(/\.html$/,''),i=2;while(await exists(h,base+'-'+i+'.html'))i++;var alt=base+'-'+i+'.html';
-var c=await ask('"'+name+'" already exists in "'+h.name+'".',[['Replace it','replace'],['Save as '+alt,'alt'],['Cancel',null,1]]);if(!c)return 'cancel';if(c==='alt')name=alt;}
-try{await writeTo(h,name,html);}catch(e){console.error(e);await clearDir();return 'fail';}
-remember();toast('Saved '+name+' to '+h.name);return 'ok';}
-window.saveFile=async function(){var html=build(),name=fileName();
-if(window.showDirectoryPicker){var r=await saveToDir(html,name);if(r==='ok'||r==='cancel')return;}
-if(window.showSaveFilePicker){try{var h=await window.showSaveFilePicker({suggestedName:name,id:'usrvi-inspections',startIn:'documents',types:[{description:'Inspection form',accept:{'text/html':['.html']}}]});var w=await h.createWritable();await w.write(new Blob([html],{type:'text/html'}));await w.close();remember();return;}catch(e){if(e&&e.name==='AbortError')return;}}
-download(html,name);remember();};
-window.changeSaveFolder=async function(ev){if(ev)ev.preventDefault();var h=await pickDir();if(h)toast('Inspection files will be saved to '+h.name);};
-async function folderLabel(){var s=document.getElementById('irf-folder');if(!s)return;if(!window.showDirectoryPicker){s.style.display='none';return;}var h=await getDir();s.querySelector('span').textContent=h?'Saving to: '+h.name+' \u00b7 ':'';}
-(function(){var b=document.querySelector('.btns');if(!b)return;var s=document.createElement('div');s.id='irf-folder';s.innerHTML='<span></span><a href="#">Change save folder</a>';s.querySelector('a').onclick=window.changeSaveFolder;b.appendChild(s);folderLabel();})();
+async function freeName(h,n){if(!(await exists(h,n)))return n;var base=n.replace(/\.html$/,''),i=2;while(await exists(h,base+'-'+i+'.html'))i++;return base+'-'+i+'.html';}
+async function writeTo(h,n,html){var fh=await h.getFileHandle(n,{create:true}),w=await fh.createWritable();try{await w.write(new Blob([html],{type:'text/html'}));await w.close();}catch(e){try{await w.abort();}catch(x){}throw e;}}
+var PICK_MSG='Choose the "Inspection Request Form" folder inside Desktop \u2192 USRVI, then click "Select folder" (and "Edit files"/"Allow" if Edge asks). You only do this once.';
+async function pickFolder(){status(PICK_MSG,'info');var h=await window.showDirectoryPicker({id:'usrvi-inspections',mode:'readwrite',startIn:'desktop'});
+try{await setDir(h);}catch(e){status('Folder chosen, but the browser could not remember it ('+errText(e)+').','err');}return h;}
+async function fallbackSave(html,name,why){var how='';
+if(window.showSaveFilePicker){try{var fh=await window.showSaveFilePicker({suggestedName:name,id:'usrvi-inspections',startIn:'documents',types:[{description:'Inspection form',accept:{'text/html':['.html']}}]});var w=await fh.createWritable();await w.write(new Blob([html],{type:'text/html'}));await w.close();how='with the Save window as '+fh.name;}
+catch(e){if(e&&e.name==='AbortError'&&!why){status('Not saved (Save window cancelled).','err');return;}if(!(e&&e.name==='AbortError'))why=(why?why+'; ':'')+'Save window: '+errText(e);}}
+if(!how){download(html,name);how='to your Downloads folder as '+name;}
+remember();if(why)status(why+' \u2014 the customer was saved '+how+' instead.','err');else status('Saved '+name,'ok');}
+window.saveFile=async function(){var html=build(),name=fileName();clearStatus();
+if(!window.showDirectoryPicker)return fallbackSave(html,name,'');
+var h=memDir||await loadDir(),why='';
+if(!h){try{h=await pickFolder();}catch(e){h=null;why=(e&&e.name==='AbortError')?'No folder chosen':'Choose folder failed: '+errText(e);}}
+if(h){try{
+var p=h.queryPermission?await h.queryPermission({mode:'readwrite'}):'granted';
+if(p!=='granted')p=await h.requestPermission({mode:'readwrite'});
+if(p!=='granted')throw new DOMException('permission to save in "'+h.name+'" is '+p,'NotAllowedError');
+name=await freeName(h,name);await writeTo(h,name,html);remember();status('Saved '+name+' to '+h.name,'ok');return;
+}catch(e){console.error(e);why='Save failed: '+errText(e);}}
+return fallbackSave(html,name,why);};
+window.changeSaveFolder=async function(ev){if(ev)ev.preventDefault();if(!window.showDirectoryPicker)return;try{var h=await pickFolder();status('Customers will now be saved to '+h.name,'ok');}catch(e){if(e&&e.name==='AbortError')clearStatus();else status('Change save folder failed: '+errText(e),'err');}};
+async function folderLabel(){var s=document.getElementById('irf-folder');if(!s)return;if(!window.showDirectoryPicker){s.style.display='none';return;}var h=memDir||await loadDir();s.querySelector('span').textContent=h?'Saving to: '+h.name+' \u00b7 ':'';}
+(function(){var b=document.querySelector('.btns');if(!b)return;var s=document.createElement('div');s.id='irf-folder';s.innerHTML='<span></span><a href="#">Change save folder</a>';s.querySelector('a').onclick=window.changeSaveFolder;b.appendChild(s);if(window.showDirectoryPicker)loadDir().then(folderLabel);else folderLabel();})();
 /* restore embedded data (a saved inspection file) */
 var ds=document.getElementById('irf-data'),restored=false;
 if(ds){try{var o=JSON.parse(ds.textContent);restored=true;
