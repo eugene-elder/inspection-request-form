@@ -73,13 +73,13 @@ window.open('https://duckduckgo.com/?q='+encodeURIComponent('\\ site:nationalveh
 </script>
 <style>button#fpbtn,button#fpbtn:disabled{background:#1e5631 !important;color:#fff !important;border-color:#1e5631 !important}#fpbtn:disabled{opacity:.55;cursor:not-allowed}</style>
 <script>(function(){var d=document.querySelector('input[name="Date"]');function t(){if(d&&!d.value){var n=new Date();d.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}}t();document.getElementById('f').addEventListener('reset',function(){setTimeout(t,0);});})();</script>
-<style>#irf-last{grid-column:span 6;font-size:.82em;color:#555;margin-top:-4px}#irf-last a{color:#1e5631;margin-left:6px;cursor:pointer;text-decoration:underline}#irf-last .x{text-decoration:none;color:#777;margin-left:10px;font-size:1.1em}@media print{#irf-last{display:none!important}}</style>
+<style>#irf-last{grid-column:span 6;font-size:.82em;color:#555;margin-top:-4px}#irf-last a{color:#1e5631;margin-left:6px;cursor:pointer;text-decoration:underline}#irf-last .x{text-decoration:none;color:#777;margin-left:10px;font-size:1.1em}@media print{#irf-last{display:none!important}}#irf-folder{margin-left:auto;align-self:center;font-size:.8em;color:#555}#irf-folder a{color:#1e5631}.irf-dlg{border:1px solid #000;border-radius:6px;max-width:440px;padding:16px 18px}.irf-dlg p{white-space:pre-line;margin:0 0 14px}.irf-dlg-b{display:flex;gap:8px;flex-wrap:wrap}.irf-toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#1e5631;color:#fff;padding:8px 14px;border-radius:4px;z-index:9}@media print{.irf-toast,.irf-dlg{display:none!important}}</style>
 <script>
 (function(){
 var F=document.getElementById('f'),KEY='irf-last-customer';
 /* pristine copy of this page (without any embedded data) captured before the page is changed */
 var tpl=document.documentElement.cloneNode(true);
-[].forEach.call(tpl.querySelectorAll('#irf-data,#irf-last'),function(n){n.parentNode.removeChild(n);});
+[].forEach.call(tpl.querySelectorAll('#irf-data,#irf-last,#irf-folder,.irf-dlg,.irf-toast'),function(n){n.parentNode.removeChild(n);});
 function el(n){return F.elements[n];}
 function custName(){return ((el('First name').value||'').trim()+' '+(el('Last name').value||'').trim()).trim();}
 function fileName(){var s=custName().replace(/[^A-Za-z0-9 _-]+/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');return 'inspection-'+(s||'unnamed')+'.html';}
@@ -89,9 +89,35 @@ s.textContent=JSON.stringify(collect()).replace(/</g,'\\u003c');var bd=d.querySe
 return '<!DOCTYPE html>\n'+d.outerHTML;}
 function remember(){var n=custName();if(!n)return;try{localStorage.setItem(KEY,JSON.stringify({first:el('First name').value.trim(),last:el('Last name').value.trim()}));}catch(e){}}
 function download(html,name){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
+var DIRKEY='saveDir',memDir=null,FOLDER_HINT='Inspection Request Form folder inside Desktop\\USRVI';
+function idb(){return new Promise(function(res,rej){var r=indexedDB.open('irf-save',1);r.onupgradeneeded=function(){r.result.createObjectStore('kv');};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
+async function getDir(){if(memDir)return memDir;try{var db=await idb();return await new Promise(function(res){var q=db.transaction('kv').objectStore('kv').get(DIRKEY);q.onsuccess=function(){memDir=q.result||null;res(memDir);};q.onerror=function(){res(null);};});}catch(e){return null;}}
+async function setDir(h){memDir=h;try{var db=await idb();await new Promise(function(res){var t=db.transaction('kv','readwrite');t.objectStore('kv').put(h,DIRKEY);t.oncomplete=res;t.onerror=res;t.onabort=res;});}catch(e){}folderLabel();}
+async function clearDir(){memDir=null;try{var db=await idb();db.transaction('kv','readwrite').objectStore('kv').delete(DIRKEY);}catch(e){}folderLabel();}
+/* small in-page dialog; returns the value of the clicked button (a click also gives the browser the user gesture it needs) */
+function ask(msg,btns){return new Promise(function(res){var d=document.createElement('dialog');d.className='irf-dlg';var p=document.createElement('p');p.textContent=msg;d.appendChild(p);var row=document.createElement('div');row.className='irf-dlg-b';
+btns.forEach(function(b){var e=document.createElement('button');e.type='button';e.textContent=b[0];if(b[2])e.className='sec';e.onclick=function(){d.close();d.remove();res(b[1]);};row.appendChild(e);});
+d.appendChild(row);d.addEventListener('cancel',function(){d.remove();res(null);});document.body.appendChild(d);d.showModal();});}
+function toast(m){var t=document.createElement('div');t.className='irf-toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove();},4000);}
+async function pickDir(){try{var h=await window.showDirectoryPicker({id:'usrvi-inspections',mode:'readwrite',startIn:'desktop'});await setDir(h);return h;}catch(e){return null;}}
+async function chooseFolderFirst(){var go=await ask('Choose where inspection files are saved.\n\nIn the next window, open Desktop \u2192 USRVI, click the "Inspection Request Form" folder, then click "Select folder" (and "Save changes"/"Allow" if the browser asks). You only need to do this once.',[['Choose folder','go'],['Cancel',null,1]]);return go?pickDir():null;}
+async function permOK(h){var o={mode:'readwrite'};try{if(!h.queryPermission)return true;if(await h.queryPermission(o)==='granted')return true;return (await h.requestPermission(o))==='granted';}catch(e){return false;}}
+async function exists(h,n){try{await h.getFileHandle(n);return true;}catch(e){return false;}}
+async function writeTo(h,n,html){var fh=await h.getFileHandle(n,{create:true}),w=await fh.createWritable();await w.write(new Blob([html],{type:'text/html'}));await w.close();}
+async function saveToDir(html,name){var h=await getDir();if(!h){h=await chooseFolderFirst();if(!h)return 'cancel';}
+if(!(await permOK(h))){var a=await ask('The browser needs your OK to save into "'+h.name+'".',[['Allow','go'],['Choose a different folder','pick',1],['Save another way','other',1]]);
+if(a==='pick'){h=await pickDir();if(!h)return 'cancel';}else if(a!=='go'||!(await permOK(h)))return a===null?'cancel':'fail';}
+if(await exists(h,name)){var base=name.replace(/\.html$/,''),i=2;while(await exists(h,base+'-'+i+'.html'))i++;var alt=base+'-'+i+'.html';
+var c=await ask('"'+name+'" already exists in "'+h.name+'".',[['Replace it','replace'],['Save as '+alt,'alt'],['Cancel',null,1]]);if(!c)return 'cancel';if(c==='alt')name=alt;}
+try{await writeTo(h,name,html);}catch(e){console.error(e);await clearDir();return 'fail';}
+remember();toast('Saved '+name+' to '+h.name);return 'ok';}
 window.saveFile=async function(){var html=build(),name=fileName();
+if(window.showDirectoryPicker){var r=await saveToDir(html,name);if(r==='ok'||r==='cancel')return;}
 if(window.showSaveFilePicker){try{var h=await window.showSaveFilePicker({suggestedName:name,id:'usrvi-inspections',startIn:'documents',types:[{description:'Inspection form',accept:{'text/html':['.html']}}]});var w=await h.createWritable();await w.write(new Blob([html],{type:'text/html'}));await w.close();remember();return;}catch(e){if(e&&e.name==='AbortError')return;}}
 download(html,name);remember();};
+window.changeSaveFolder=async function(ev){if(ev)ev.preventDefault();var h=await pickDir();if(h)toast('Inspection files will be saved to '+h.name);};
+async function folderLabel(){var s=document.getElementById('irf-folder');if(!s)return;if(!window.showDirectoryPicker){s.style.display='none';return;}var h=await getDir();s.querySelector('span').textContent=h?'Saving to: '+h.name+' \u00b7 ':'';}
+(function(){var b=document.querySelector('.btns');if(!b)return;var s=document.createElement('div');s.id='irf-folder';s.innerHTML='<span></span><a href="#">Change save folder</a>';s.querySelector('a').onclick=window.changeSaveFolder;b.appendChild(s);folderLabel();})();
 /* restore embedded data (a saved inspection file) */
 var ds=document.getElementById('irf-data'),restored=false;
 if(ds){try{var o=JSON.parse(ds.textContent);restored=true;
