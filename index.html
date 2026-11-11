@@ -123,7 +123,7 @@ remember();if(why)status(why+' \u2014 the customer was saved '+how+' instead.','
 window.saveFile=async function(){var html=build(),name=fileName();clearStatus();
 if(!window.showDirectoryPicker)return fallbackSave(html,name,'');
 var h=memDir||await loadDir(),why='';
-if(!h){try{h=await pickFolder();}catch(e){h=null;why=(e&&e.name==='AbortError')?'No folder chosen':'Choose folder failed: '+errText(e);}}
+if(!h){try{h=await pickFolder();}catch(e){h=null;why=((e&&e.name==='AbortError')?'No folder chosen':'Choose folder failed')+' ('+errText(e)+')';}}
 if(h){try{
 var p=h.queryPermission?await h.queryPermission({mode:'readwrite'}):'granted';
 if(p!=='granted')p=await h.requestPermission({mode:'readwrite'});
