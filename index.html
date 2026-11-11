@@ -116,7 +116,7 @@ var PICK_MSG='Choose the "Inspection Request Form" folder inside Desktop \u2192 
 async function pickFolder(){status(PICK_MSG,'info');var h=await window.showDirectoryPicker({id:'usrvi-inspections',mode:'readwrite',startIn:'desktop'});
 try{await setDir(h);}catch(e){status('Folder chosen, but the browser could not remember it ('+errText(e)+').','err');}return h;}
 async function fallbackSave(html,name,why){var how='';
-if(window.showSaveFilePicker){try{var fh=await window.showSaveFilePicker({suggestedName:name,id:'usrvi-inspections',startIn:'documents',types:[{description:'Inspection form',accept:{'text/html':['.html']}}]});var w=await fh.createWritable();await w.write(new Blob([html],{type:'text/html'}));await w.close();how='with the Save window as '+fh.name;}
+if(window.showSaveFilePicker&&!why){try{var fh=await window.showSaveFilePicker({suggestedName:name,id:'usrvi-inspections',startIn:'documents',types:[{description:'Inspection form',accept:{'text/html':['.html']}}]});var w=await fh.createWritable();await w.write(new Blob([html],{type:'text/html'}));await w.close();how='with the Save window as '+fh.name;}
 catch(e){if(e&&e.name==='AbortError'&&!why){status('Not saved (Save window cancelled).','err');return;}if(!(e&&e.name==='AbortError'))why=(why?why+'; ':'')+'Save window: '+errText(e);}}
 if(!how){download(html,name);how='to your Downloads folder as '+name;}
 remember();if(why)status(why+' \u2014 the customer was saved '+how+' instead.','err');else status('Saved '+name,'ok');}
